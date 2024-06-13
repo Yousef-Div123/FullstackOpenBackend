@@ -26,20 +26,16 @@ app.get("/api/persons/", (req, res)=>{
     })
 })
 
-app.post("/api/persons/", async (req, res)=>{
+app.post("/api/persons/", async (req, res, next)=>{
     let body = req.body
     let exist = await Person.find({name:body.name})
 
     if (!body.name || !body.number) {
-        return res.status(400).json({ 
-          error: 'content missing' 
-        })
+      return next({name:"noContent"})
     }
     
     if(exist.length !== 0){
-        return res.status(400).json({ 
-          error: 'name must be unique' 
-        })
+      return next({name:"duplicate"})
     }
 
     let person = new Person({
@@ -51,17 +47,40 @@ app.post("/api/persons/", async (req, res)=>{
     res.json(result)
 })
 
-app.get("/api/persons/:id", (req, res)=>{
+app.get("/api/persons/:id", (req, res, next)=>{
     let id = req.params.id
-    Person.findById(id).then((result)=>{
-      res.json(result)
-    })
+    Person.findById(id)
+      .then((result)=>{
+        res.json(result)
+      })
+      .catch(error => next(error))
 })
 
-app.delete("/api/persons/:id", async (req, res)=>{
+app.delete("/api/persons/:id", async (req, res, next)=>{
     let id = req.params.id
-    let result = await Person.findByIdAndDelete(id)
-    res.status(204).end()
+    try{
+      let result = await Person.findByIdAndDelete(id)
+      res.status(204).end()
+    }
+    catch(error){
+      return next(error)
+    }
+})
+
+app.put("/api/persons/:id", async (req, res, next)=>{
+  try{
+      let body = req.body
+      let id = req.params.id
+      let person = {
+        name: body.name,
+        number: body.number
+      }
+      let result = await Person.findByIdAndUpdate(id, person, {new:true})
+      res.json(result)
+    }
+    catch(error){
+      return next(error)
+    }
 })
 
 app.get("/info", (req, res)=>{
@@ -70,6 +89,28 @@ app.get("/info", (req, res)=>{
       res.send(`Phonebook has info for ${count} people<p>${date}</p>`)
     })
 })
+
+const errorHandler = (error, req, res, next) =>{
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' })
+  }
+  else if(error.name === "noContent"){
+    return res.status(400).send({ 
+      error: 'content missing' 
+    })
+  } 
+  else if(error.name === "duplicate"){
+    return res.status(400).json({ 
+      error: 'name must be unique' 
+    })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, ()=>{
