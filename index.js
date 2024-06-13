@@ -1,6 +1,8 @@
+require("dotenv").config()
 const express = require("express")
 const morgan = require("morgan")
 const cors = require('cors')
+const Person = require("./models/person")
 
 const app = express()
 
@@ -18,37 +20,15 @@ app.use(morgan(function (tokens, req, res) {
   ].join(' ')
 }))
 
-let persons = [
-    { 
-      "id": 1,
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": 2,
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": 3,
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": 4,
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-]
-
 app.get("/api/persons/", (req, res)=>{
-    res.json(persons)
+    Person.find({}).then((result)=>{
+      res.json(result)
+    })
 })
 
-app.post("/api/persons/", (req, res)=>{
+app.post("/api/persons/", async (req, res)=>{
     let body = req.body
-    let id = Math.floor(Math.random() * 100)
-    let exist = persons.find(person => person.name === body.name)
+    let exist = await Person.find({name:body.name})
 
     if (!body.name || !body.number) {
         return res.status(400).json({ 
@@ -56,44 +36,42 @@ app.post("/api/persons/", (req, res)=>{
         })
     }
     
-    if(exist){
+    if(exist.length !== 0){
         return res.status(400).json({ 
           error: 'name must be unique' 
         })
     }
 
-    let person = {
-        id: id,
+    let person = new Person({
         name: body.name,
         number: Number(body.number)
-    }
+    })
 
-    persons.push(person)
-    res.json(person)
+    let result = await person.save()
+    res.json(result)
 })
 
 app.get("/api/persons/:id", (req, res)=>{
-    let id = Number(req.params.id)
-    let person = persons.find(person => person.id === id)
-    if(person)
-        res.json(person)
-    else
-        res.status(404).end()
+    let id = req.params.id
+    Person.findById(id).then((result)=>{
+      res.json(result)
+    })
 })
 
-app.delete("/api/persons/:id", (req, res)=>{
-    let id = Number(req.params.id)
-    persons = persons.filter(person => person.id !== id)
+app.delete("/api/persons/:id", async (req, res)=>{
+    let id = req.params.id
+    let result = await Person.findByIdAndDelete(id)
     res.status(204).end()
 })
 
 app.get("/info", (req, res)=>{
-    let len = persons.length
-    let date = new Date()
-    res.send(`Phonebook has info for ${len} people<p>${date}</p>`)
+    Person.countDocuments().then(count =>{
+      let date = new Date()
+      res.send(`Phonebook has info for ${count} people<p>${date}</p>`)
+    })
 })
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, ()=>{
     console.log(`Server running on port http://127.0.0.1:${PORT}/`)
 })
