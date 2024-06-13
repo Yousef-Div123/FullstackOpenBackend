@@ -14,9 +14,34 @@ mongoose.connect(url)
     console.log('error connecting to MongoDB:', error.message)
 })
 
+const personNumberValidator = (value)=>{
+  if(value.length - 1 < 8)
+    return false
+  let firstPart = value.indexOf("-")
+  if(firstPart == -1 ||value.slice(0,firstPart).length > 3 || value.slice(0,firstPart).length < 2)
+    return false
+  for(let c of value.slice(firstPart + 1)){
+    if(!/^\d+$/.test(c)){
+      return false
+    }
+  }
+  return true
+}
+
 const personSchema = new mongoose.Schema({
-    name: String,
-    number: String,
+  name: {
+    type: String,
+    minLength: 3,
+    required: true
+  },
+  number: {
+    type: String,
+    validate: {
+      validator: personNumberValidator,
+      message:props => `${props.value} is not a valid phone number!`
+    },
+    required: [true, 'User phone number required']
+  }
 })
 
 personSchema.set('toJSON', {

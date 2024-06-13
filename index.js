@@ -40,11 +40,15 @@ app.post("/api/persons/", async (req, res, next)=>{
 
     let person = new Person({
         name: body.name,
-        number: Number(body.number)
+        number: body.number
     })
-
-    let result = await person.save()
-    res.json(result)
+    try{
+      let result = await person.save()
+      res.json(result)
+    }
+    catch(error){
+      next(error)
+    }
 })
 
 app.get("/api/persons/:id", (req, res, next)=>{
@@ -75,7 +79,7 @@ app.put("/api/persons/:id", async (req, res, next)=>{
         name: body.name,
         number: body.number
       }
-      let result = await Person.findByIdAndUpdate(id, person, {new:true})
+      let result = await Person.findByIdAndUpdate(id, person, {new:true, runValidators: true, context:"query"})
       res.json(result)
     }
     catch(error){
@@ -105,6 +109,9 @@ const errorHandler = (error, req, res, next) =>{
     return res.status(400).json({ 
       error: 'name must be unique' 
     })
+  }
+  else if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message })
   }
 
   next(error)
